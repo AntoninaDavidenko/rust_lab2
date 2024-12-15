@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <style>
+        .calculator {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 350px;
+            margin: 50px auto;
+        }
+
+        button,
+        input {
+            font-size: 1.5em;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px;
+            border: none;
+        }
+
+        button {
+            width: 100%;
+            height: 60px;
+            background-color: #D0FAF2;
+            color: #09332B;
+        }
+
+        input {
+            grid-column: span 4;
+            /* Растягиваем input на всю ширину */
+            height: 60px;
+            text-align: right;
+        }
+
+        body {
+            background-color: #0e5347;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="calculator">
+        <input type="text" id="display" readonly />
+        <button onclick="appendNumber(7)">7</button>
+        <button onclick="appendNumber(8)">8</button>
+        <button onclick="appendNumber(9)">9</button>
+        <button onclick="appendOperator('/')">/</button>
+        <button onclick="appendNumber(4)">4</button>
+        <button onclick="appendNumber(5)">5</button>
+        <button onclick="appendNumber(6)">6</button>
+        <button onclick="appendOperator('*')">*</button>
+        <button onclick="appendNumber(1)">1</button>
+        <button onclick="appendNumber(2)">2</button>
+        <button onclick="appendNumber(3)">3</button>
+        <button onclick="appendOperator('+')">+</button>
+        <button onclick="appendNumber(0)">0</button>
+        <button onclick="clearDisplay()">C</button>
+        <button onclick="calculate()">=</button>
+        <button onclick="appendOperator('-')">-</button>
+    </div>
+
+    <script>
+        let displayValue = ''; // Повний вираз, що відображається у полі
+        let currentOperator = '';
+        let firstOperand = null;
+
+        function clearDisplay() {
+            displayValue = '';
+            currentOperator = '';
+            firstOperand = null;
+            document.getElementById("display").value = '';
+        }
+
+        function appendNumber(number) {
+            displayValue += number;
+            document.getElementById("display").value = displayValue;
+        }
+
+        function appendOperator(operator) {
+            const lastChar = displayValue.trim().slice(-1);
+
+            // Якщо вводиться "-" записуємо його як частину від'ємного числа
+            if (
+                operator === '-' &&
+                (displayValue === '' || displayValue.trim().endsWith(' ') || ['+', '-', '*', '/'].includes(lastChar))
+            ) {
+                displayValue += operator; 
+                document.getElementById("display").value = displayValue;
+                return;
+            }
+
+            // Заборонити введення другого оператора підряд (якщо він не "-")
+            if (['+', '-', '*', '/'].includes(lastChar) && operator !== '-') {
+                return; // Ігноруємо введення
+            }
+
+            //Виконуємо проміжне обчислення, якщо з'являється оператор післа другого числа
+            if (currentOperator) {
+                calculate(false);
+            }
+
+            firstOperand = parseFloat(displayValue); // Зберігаємо перше число
+            currentOperator = operator; // Встановлюємо поточний оператор
+            displayValue += ` ${operator} `; // Додаємо оператор у вираз
+            document.getElementById("display").value = displayValue; // Оновлюємо поле введення
+        }
+
+        async function calculate(finalize = true) {
+            // Розділяємо рядок на частини
+            const parts = displayValue.trim().split(' '); 
+
+            // Не виконуємо, якщо недостатньо даних для обчислення
+            if (parts.length < 3) return;
+
+            // Розподіляємо рядок на числа та знак
+            const a = parseFloat(parts[0]);
+            const operator = parts[1];
+            const b = parseFloat(parts[2]);
+
+            // Кодуємо оператор для коректрного відправлення та відправляємо запит на сервер 
+            const encodedOperator = encodeURIComponent(operator);
+            const response = await fetch(`/calculate?a=${a}&b=${b}&op=${encodedOperator}`);
+
+            if (response.ok) {
+                const result = await response.text();
+
+                if (finalize) {
+                    // Після завершення обчислення очищаємо вираз та показуємо результат
+                    displayValue = result;
+                    currentOperator = '';
+                    firstOperand = null;
+                } else {
+                    // Для проміжного обчислення оновлюємо вираз
+                    displayValue = `${result} ${currentOperator} `;
+                    firstOperand = parseFloat(result);
+                }
+
+                document.getElementById("display").value = displayValue;
+            } else {
+                const error = await response.text();
+                document.getElementById("display").value = `Error: ${error}`;
+            }
+        }
+    </script>
+
+</body>
+
+</html>
